@@ -2,10 +2,17 @@
 // config/database.php
 declare(strict_types=1);
 
-define('DB_HOST', 'localhost:3308');
-define('DB_NAME', 'woolf_db');
-define('DB_USER', 'root');
-define('DB_PASS', '');
+// define('DB_HOST', 'localhost:3308');
+// define('DB_NAME', 'woolf_db');
+// define('DB_USER', 'root');
+// define('DB_PASS', '');
+// define('DB_CHARSET', 'utf8mb4');
+
+
+define('DB_HOST', 'localhost');
+define('DB_NAME', 'u677332555_bricksvisual');
+define('DB_USER', 'u677332555_bricksvisual');
+define('DB_PASS', 'BricksVisual@6546');
 define('DB_CHARSET', 'utf8mb4');
 
 function getPDO(): PDO
