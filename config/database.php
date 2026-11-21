@@ -10,9 +10,9 @@ declare(strict_types=1);
 
 
 define('DB_HOST', 'localhost');
-define('DB_NAME', 'u677332555_bricksvisual');
-define('DB_USER', 'u677332555_bricksvisual');
-define('DB_PASS', 'BricksVisual@6546');
+define('DB_NAME', 'u677332555_woolfbrick');
+define('DB_USER', 'u677332555_woolfbrick');
+define('DB_PASS', 'WoolfBrick@66');
 define('DB_CHARSET', 'utf8mb4');
 
 function getPDO(): PDO

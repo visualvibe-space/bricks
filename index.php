@@ -196,6 +196,56 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['form'] ?? '') === 'enquiry
        }
        return $p;
    }
+   /* ------------------------------------------------------------
+   GALLERY SECTION FETCH
+   ------------------------------------------------------------ */
+$gallerySection = null;
+$galleryImages  = [];
+
+try {
+    $gallerySection = $db->query(
+        "SELECT * FROM gallery_section WHERE is_active = 1 ORDER BY id ASC LIMIT 1"
+    )->fetch() ?: null;
+
+    if ($gallerySection) {
+        $stmt = $db->prepare(
+            "SELECT * FROM gallery_images
+             WHERE section_id = ? AND is_active = 1
+             ORDER BY sort_order ASC, id ASC"
+        );
+        $stmt->execute([$gallerySection['id']]);
+        $galleryImages = $stmt->fetchAll();
+    }
+} catch (Throwable $e) {
+    error_log('Gallery fetch failed: ' . $e->getMessage());
+}
+
+
+
+
+/* ------------------------------------------------------------
+   REELS SECTION FETCH
+   ------------------------------------------------------------ */
+   $reelsSection = null;
+   $reelsItems   = [];
+   
+   try {
+       $reelsSection = $db->query(
+           "SELECT * FROM reels_section WHERE is_active = 1 ORDER BY id ASC LIMIT 1"
+       )->fetch() ?: null;
+   
+       if ($reelsSection) {
+           $stmt = $db->prepare(
+               "SELECT * FROM reels_items
+                WHERE section_id = ? AND is_active = 1
+                ORDER BY sort_order ASC, id ASC"
+           );
+           $stmt->execute([$reelsSection['id']]);
+           $reelsItems = $stmt->fetchAll();
+       }
+   } catch (Throwable $e) {
+       error_log('Reels fetch failed: ' . $e->getMessage());
+   }
 ?>
 <!doctype html>
 <html lang="en">
@@ -240,6 +290,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['form'] ?? '') === 'enquiry
         .btn-outline-light{border:1px solid rgba(255,255,255,.45);color:#fff}
         .btn-outline-light:hover{border-color:var(--gold);color:var(--gold)}
 
+        /* ===== HERO (row/col based, responsive) ===== */
         .hero{min-height:790px;height:100vh;max-height:1000px;background:#111815;color:#fff;
               position:relative;overflow:hidden;padding-top:100px;display:flex;align-items:center}
         .hero-grid{position:absolute;inset:0;
@@ -265,7 +316,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['form'] ?? '') === 'enquiry
             font-size:9px;letter-spacing:.16em}
         .hero-vertical{position:absolute;right:35px;bottom:95px;writing-mode:vertical-rl;
             font-size:9px;letter-spacing:.25em;color:#a7a99f}
-        .hero-brick-wrap{position:absolute;right:6%;top:20%;width:43%;height:65%;
+
+        /* brick visual — now in its own column */
+        .hero-brick-wrap{position:relative;width:100%;height:100%;min-height:480px;
             display:flex;align-items:center;justify-content:center;perspective:1000px}
         .brick-scene{width:360px;height:260px;position:relative;perspective:900px;
             filter:drop-shadow(0 55px 35px rgba(0,0,0,.55));
@@ -292,6 +345,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['form'] ?? '') === 'enquiry
         .brick-caption{position:absolute;bottom:8%;right:15%;
             font-size:9px;letter-spacing:.2em;color:#929b91}
         .brick-caption b{color:var(--gold);margin-left:12px}
+
+        /* if you replace the 3D brick with a real image, use this class */
+        .hero-brick-img{width:100%;max-width:520px;height:auto;display:block;
+            border-radius:8px;object-fit:cover;
+            box-shadow:0 40px 80px rgba(0,0,0,.45)}
 
         .ticker{background:var(--gold);overflow:hidden;padding:15px 0;color:#171b17}
         .ticker-track{display:flex;gap:40px;white-space:nowrap;width:max-content;
@@ -585,11 +643,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['form'] ?? '') === 'enquiry
             font:700 11px Manrope;letter-spacing:.14em;text-transform:uppercase;transition:.3s}
         .reels-footer a:hover{background:#f0c766;transform:translateY(-3px);color:#111}
 
+        /* ===== RESPONSIVE ===== */
         @media(max-width:991px){
-            .hero{height:auto;min-height:850px;align-items:flex-start;padding-top:180px}
-            .hero-brick-wrap{right:2%;top:48%;width:55%;height:42%;opacity:.8}
+            .hero{height:auto;min-height:auto;align-items:flex-start;padding-top:150px;padding-bottom:60px}
             .hero-content{padding-top:15px}
-            .hero-bottom{bottom:20px}
+            .hero-bottom{position:relative;left:auto;right:auto;bottom:auto;
+                margin-top:50px;padding:0 12px}
+            .hero-vertical{display:none}
+            .hero-brick-wrap{min-height:380px;margin-top:40px}
+            .brick-scene{transform:scale(.85)}
             .nav-cta{display:inline-flex;margin:10px 0}
             .navbar-collapse{padding-top:15px}
             .section{padding:85px 0}
@@ -599,12 +661,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['form'] ?? '') === 'enquiry
             .reels-grid{grid-template-columns:repeat(2,1fr)}
         }
         @media(max-width:767px){
-            .hero{min-height:790px;padding-top:155px}
+            .hero{min-height:auto;padding-top:130px;padding-bottom:50px}
             .hero h1{font-size:clamp(53px,15vw,82px)}
-            .hero-brick-wrap{top:53%;right:-15%;width:85%;height:36%;opacity:.65}
-            .brick-scene{transform:scale(.75)}
-            .hero-bottom{bottom:15px;left:0;right:0;font-size:7px}
-            .hero-vertical{right:12px;bottom:45px}
+            .hero-brick-wrap{min-height:320px;margin-top:30px}
+            .brick-scene{transform:scale(.7)}
+            .hero-bottom{font-size:7px}
             .stat-row{grid-template-columns:repeat(2,1fr);row-gap:28px}
             .section-title{font-size:48px}
             .about-image{height:300px}
@@ -963,6 +1024,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['form'] ?? '') === 'enquiry
     transition:transform .6s;
 }
 .cl-photo:hover img{transform:scale(1.04)}
+/* reels: ensure the <a> wrapper behaves like the old card */
+a.reel-card{display:block;color:inherit;text-decoration:none}
+a.reel-card:hover{color:inherit}
+.reel-fallback{position:absolute;inset:0;
+    background:linear-gradient(145deg,#3b4b3f,#1c2a1f)}
+
+
+
+
     </style>
 </head>
 
@@ -998,31 +1068,46 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['form'] ?? '') === 'enquiry
 
     <main>
 
-        <!-- ================= HERO ================= -->
+        <!-- ================= HERO (row/col layout, image stacks below on mobile) ================= -->
         <section class="hero" id="home">
             <div class="hero-grid"></div>
             <div class="hero-glow"></div>
             <div class="container hero-content">
-                <div class="eyebrow reveal"><span></span> ENGINEERED FOR EVERY FOUNDATION</div>
-                <h1 class="reveal">BUILD WITH<br><em>CONFIDENCE.</em></h1>
-                <p class="hero-copy reveal">A stronger foundation for the places where life happens. Discover WOOLF fly ash bricks and concrete blocks, manufactured for modern construction.</p>
-                <div class="d-flex flex-wrap gap-3 reveal">
-                    <a class="btn-gold" href="#products">Explore Products <i class="bi bi-arrow-down-right"></i></a>
-                    <a class="btn-outline-light" href="#contact">Request a Quote <i class="bi bi-arrow-up-right"></i></a>
+                <div class="row align-items-center g-4 g-lg-5">
+
+                    <!-- Text column -->
+                    <div class="col-12 col-lg-7">
+                        <div class="eyebrow reveal"><span></span> ENGINEERED FOR EVERY FOUNDATION</div>
+                        <h1 class="reveal">BUILD WITH<br><em>CONFIDENCE.</em></h1>
+                        <p class="hero-copy reveal">A stronger foundation for the places where life happens. Discover WOOLF fly ash bricks and concrete blocks, manufactured for modern construction.</p>
+                        <div class="d-flex flex-wrap gap-3 reveal">
+                            <a class="btn-gold" href="#products">Explore Products <i class="bi bi-arrow-down-right"></i></a>
+                            <a class="btn-outline-light" href="#contact">Request a Quote <i class="bi bi-arrow-up-right"></i></a>
+                        </div>
+                    </div>
+
+                    <!-- Brick image / visual column -->
+                    <div class="col-12 col-lg-5">
+                        <div class="hero-brick-wrap reveal" aria-label="WOOLF fly ash brick">
+                            
+                                <!-- Replace the 3D brick below with your image, e.g.: -->
+                                <img src="uploads/Carved Granite Stone Sign.png" alt="WOOLF fly ash brick" class="hero-brick-img">
+                           
+                            <!-- <div class="brick-scene">
+                                <div class="brick3d">
+                                    <div class="brick-face front"><span>WOOLF</span></div>
+                                    <div class="brick-face top"></div>
+                                    <div class="brick-face side"></div>
+                                </div>
+                            </div>
+                            <div class="brick-caption">MATERIAL STUDY <b>01</b></div>
+                        </div> -->
+                    </div>
+
                 </div>
+
                 <div class="hero-bottom"><span>01 / 04 — WOOLF BRICKS & FLY ASH</span><span>SURAT · GUJARAT · INDIA</span></div>
             </div>
-            <div class="hero-brick-wrap" aria-label="Stylized 3D fly ash brick">
-                <div class="brick-scene">
-                    <div class="brick3d">
-                        <div class="brick-face front"><span>WOOLF</span></div>
-                        <div class="brick-face top"></div>
-                        <div class="brick-face side"></div>
-                    </div>
-                </div>
-                <div class="brick-caption">MATERIAL STUDY <b>01</b></div>
-            </div>
-            <div class="hero-vertical">MADE FOR THE LONG RUN</div>
         </section>
 
         <!-- ================= TICKER ================= -->
@@ -1182,86 +1267,100 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['form'] ?? '') === 'enquiry
         </section>
         <?php endif; ?>
 
-        <!-- ================= PRODUCTS ================= -->
-        <section class="section products-section" id="products">
-            <div class="container">
-                <div class="row mb-5">
-                    <div class="col-lg-5">
-                        <div class="eyebrow light reveal">02 / PRODUCT RANGE</div>
-                        <h2 class="section-title light reveal">Materials that<br><em>perform.</em></h2>
+       <!-- ================= PRODUCTS ================= -->
+<section class="section products-section" id="products">
+    <div class="container">
+        <div class="row mb-5">
+            <div class="col-lg-5">
+                <div class="eyebrow light reveal">02 / PRODUCT RANGE</div>
+                <h2 class="section-title light reveal">Materials that<br><em>perform.</em></h2>
+            </div>
+            <div class="col-lg-6 offset-lg-1 d-flex align-items-end">
+                <p class="section-intro reveal">Precision-manufactured fly ash bricks and hollow concrete blocks for structural and non-structural applications.</p>
+            </div>
+        </div>
+        <div class="row g-4">
+            <!-- FLY ASH BRICKS -->
+            <div class="col-12 col-lg-7">
+                <div class="product-card reveal">
+                    <div class="product-top"><span>01</span><span>FLY ASH BRICKS</span></div>
+                    <div class="product-visual">
+                        <img src="uploads/flyash.jpeg"
+                             alt="WOOLF fly ash brick"
+                             class="product-img"
+                             loading="lazy">
                     </div>
-                    <div class="col-lg-6 offset-lg-1 d-flex align-items-end">
-                        <p class="section-intro reveal">Precision-manufactured fly ash bricks and hollow concrete blocks for structural and non-structural applications.</p>
-                    </div>
-                </div>
-                <div class="row g-4">
-                    <div class="col-lg-7">
-                        <div class="product-card reveal">
-                            <div class="product-top"><span>01</span><span>FLY ASH BRICKS</span></div>
-                            <div class="product-visual">
-                                <div class="brick-mini"><div class="mini-front"></div><div class="mini-top"></div><div class="mini-side"></div></div>
-                            </div>
-                            <div class="product-info">
-                                <div><h3>Fly Ash Bricks</h3><p>Uniform shape, high compressive strength and excellent thermal insulation — an eco-friendly alternative to traditional clay bricks.</p>
-                                    <div class="size-tags"><span>230×110×75 mm</span><span>230×110×100 mm</span></div>
-                                </div>
-                                <a href="#contact" class="round-arrow"><i class="bi bi-arrow-up-right"></i></a>
-                            </div>
+                    <div class="product-info">
+                        <div>
+                            <h3>Fly Ash Bricks</h3>
+                            <p>Uniform shape, high compressive strength and excellent thermal insulation — an eco-friendly alternative to traditional clay bricks.</p>
+                            <div class="size-tags"><span>230×110×75 mm</span><span>230×110×100 mm</span></div>
                         </div>
-                    </div>
-                    <div class="col-lg-5">
-                        <div class="product-card product-secondary reveal">
-                            <div class="product-top"><span>02</span><span>CONCRETE BLOCKS</span></div>
-                            <div class="block-visual">
-                                <div class="concrete-block"><i></i><i></i></div>
-                            </div>
-                            <div class="product-info">
-                                <div><h3>Hollow Blocks</h3><p>Lightweight, strong and quick to install — ideal for partition walls and framed structures.</p>
-                                    <div class="size-tags"><span>400×200×200 mm</span><span>400×150×200 mm</span></div>
-                                </div>
-                                <a href="#contact" class="round-arrow"><i class="bi bi-arrow-up-right"></i></a>
-                            </div>
-                        </div>
+                        <a href="#contact" class="round-arrow"><i class="bi bi-arrow-up-right"></i></a>
                     </div>
                 </div>
             </div>
-        </section>
-
+            <!-- CONCRETE BLOCKS -->
+            <div class="col-12 col-lg-5">
+                <div class="product-card product-secondary reveal">
+                    <div class="product-top"><span>02</span><span>CONCRETE BLOCKS</span></div>
+                    <div class="block-visual">
+                        <img src="uploads/hollow.jpeg"
+                             alt="WOOLF hollow concrete block"
+                             class="product-img"
+                             loading="lazy">
+                    </div>
+                    <div class="product-info">
+                        <div>
+                            <h3 style="margin-top:14% !important;">Hollow Blocks</h3>
+                            <p>Lightweight, strong and quick to install — ideal for partition walls and framed structures.</p>
+                            <div class="size-tags"><span>230×110×75 mm</div>
+                        </div>
+                        <a href="#contact" class="round-arrow"><i class="bi bi-arrow-up-right"></i></a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
         <!-- ================= SPECS ================= -->
         <section class="section specs-section" id="specs">
-            <div class="container">
-                <div class="row g-5 align-items-center">
-                    <div class="col-lg-5">
-                        <div class="eyebrow dark reveal">03 / TECHNICAL SPECS</div>
-                        <h2 class="section-title reveal">Measured for<br><em>precision.</em></h2>
-                        <div class="spec-list reveal">
-                            <div><span>COMPRESSIVE STRENGTH</span><b>7.5+</b><small>N/mm²</small></div>
-                            <div><span>WATER ABSORPTION</span><b>&lt;10%</b><small>by weight</small></div>
-                            <div><span>DIMENSIONAL TOLERANCE</span><b>±2</b><small>mm</small></div>
-                            <div><span>THERMAL CONDUCTIVITY</span><b>0.25</b><small>W/m·K</small></div>
-                        </div>
-                    </div>
-                    <div class="col-lg-7">
-                        <div class="dimension-visual reveal">
-                            <div class="dimension-brick">
-                                <div class="dim-front">WOOLF</div>
-                                <div class="dim-top"></div>
-                                <div class="dim-side"></div>
-                            </div>
-                            <div class="dim-line dim-length">230 mm</div>
-                            <div class="dim-line dim-width">110 mm</div>
-                            <div class="dim-line dim-height">75 mm</div>
-                            <p>Standard brick dimensions</p>
-                        </div>
-                    </div>
-                </div>
-                <div class="texture-callout reveal">
-                    <span>TEXTURE / FINISH</span>
-                    <p>Sharp edges, uniform surface, consistent colour — ready for direct plastering.</p>
-                    <small>WOOLF STANDARD</small>
+    <div class="container">
+        <div class="row g-5 align-items-center">
+            <div class="col-12 col-lg-5">
+                <div class="eyebrow dark reveal">03 / TECHNICAL SPECS</div>
+                <h2 class="section-title reveal">Measured for<br><em>precision.</em></h2>
+                <div class="spec-list reveal">
+                    <div><span>COMPRESSIVE STRENGTH</span><b>8.5+</b><small>N/mm²</small></div>
+                    <div><span>WATER ABSORPTION</span><b>&lt;20%</b><small>by weight</small></div>
+                    <div><span>DIMENSIONAL TOLERANCE</span><b>±2</b><small>mm</small></div>
+                    <div><span>THERMAL CONDUCTIVITY</span><b>0.25</b><small>W/m·K</small></div>
                 </div>
             </div>
-        </section>
+            <div class="col-12 col-lg-7">
+                <div class="dimension-visual reveal">
+                    <!-- Replace with your own brick image -->
+                    <img src="uploads/Carved Granite Stone Sign.png"
+                         alt="WOOLF fly ash brick with dimensions 230×110×75 mm"
+                         class="dimension-img"
+                         loading="lazy">
+
+                    <!-- Dimension overlay labels -->
+                    <div class="dim-line dim-length">230 mm</div>
+                    <div class="dim-line dim-width">110 mm</div>
+                    <div class="dim-line dim-height">75 mm</div>
+
+                    <p>Standard brick dimensions</p>
+                </div>
+            </div>
+        </div>
+        <div class="texture-callout reveal">
+            <span>TEXTURE / FINISH</span>
+            <p>Sharp edges, uniform surface, consistent colour — ready for direct plastering.</p>
+            <small>WOOLF STANDARD</small>
+        </div>
+    </div>
+</section>
 
         <!-- ================= BENEFITS ================= -->
         <section class="section benefits-section" id="benefits">
@@ -1281,28 +1380,33 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['form'] ?? '') === 'enquiry
 
         <!-- ================= MATERIALS ================= -->
         <section class="section materials-section" id="materials">
-            <div class="container">
-                <div class="row g-5 align-items-center">
-                    <div class="col-lg-6">
-                        <div class="eyebrow light reveal">05 / MATERIALS</div>
-                        <h2 class="section-title light reveal">Sourced with<br><em>purpose.</em></h2>
-                        <p class="section-intro reveal">Every input is selected for performance and sustainability.</p>
-                        <ul class="material-list reveal">
-                            <li><b>01</b> Fly ash from thermal power plants</li>
-                            <li><b>02</b> Cement (OPC / PPC)</li>
-                            <li><b>03</b> Fine aggregates and stone dust</li>
-                            <li><b>04</b> Gypsum and lime additives</li>
-                            <li><b>05</b> Water (potable quality)</li>
-                        </ul>
-                    </div>
-                    <div class="col-lg-6">
-                        <div class="reveal" style="height:390px;background:linear-gradient(145deg,#2d3d2f,#1b2b1e);display:flex;align-items:center;justify-content:center;color:#afbfaf;font-size:60px;">Material sourcing</div>
-                        <p class="photo-caption reveal">FLY ASH RECYCLING · SUSTAINABLE INPUTS</p>
-                    </div>
-                </div>
+    <div class="container">
+        <div class="row g-5 align-items-center">
+            <div class="col-12 col-lg-6">
+                <div class="eyebrow light reveal">05 / MATERIALS</div>
+                <h2 class="section-title light reveal">Sourced with<br><em>purpose.</em></h2>
+                <p class="section-intro reveal">Every input is selected for performance and sustainability.</p>
+                <ul class="material-list reveal">
+                    <li><b>01</b> Fly ash from thermal power plants</li>
+                    <li><b>02</b> Cement (OPC / PPC)</li>
+                    <li><b>03</b> Fine aggregates and stone dust</li>
+                    <li><b>04</b> Gypsum and lime additives</li>
+                    <li><b>05</b> Water (potable quality)</li>
+                </ul>
             </div>
-        </section>
-
+            <div class="col-12 col-lg-6">
+                <div class="materials-visual reveal">
+                    <!-- Replace with your own materials / sourcing image -->
+                    <img src="uploads/flyash.jpeg"
+                         alt="Fly ash and raw materials used at the WOOLF plant"
+                         class="materials-img"
+                         loading="lazy">
+                </div>
+                <p class="photo-caption reveal">FLY ASH RECYCLING · SUSTAINABLE INPUTS</p>
+            </div>
+        </div>
+    </div>
+</section>
         <!-- ================= SUSTAINABILITY ================= -->
         <section class="section sustain-section" id="sustainability">
             <div class="container">
@@ -1354,7 +1458,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['form'] ?? '') === 'enquiry
         </section>
 
         <!-- ================= PLANT ================= -->
-        <section class="section plant-section" id="plant">
+        <!-- <section class="section plant-section" id="plant">
             <div class="container">
                 <div class="row">
                     <div class="col-lg-5">
@@ -1378,36 +1482,95 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['form'] ?? '') === 'enquiry
                     <p class="small-note">Delivery scheduling and unloading support can be arranged on request.</p>
                 </div>
             </div>
-        </section>
+        </section> -->
+
+        <!-- ================= GALLERY / PLANT (DB-driven) ================= -->
+<?php if ($gallerySection): ?>
+<section class="section plant-section" id="plant">
+    <div class="container">
+        <div class="row">
+            <div class="col-12 col-lg-5">
+                <div class="eyebrow dark reveal"><?= htmlspecialchars($gallerySection['eyebrow']) ?></div>
+                <h2 class="section-title reveal">
+                    <?= htmlspecialchars($gallerySection['title_line1']) ?><br>
+                    <em><?= htmlspecialchars($gallerySection['title_emphasis']) ?></em>
+                </h2>
+            </div>
+            <div class="col-12 col-lg-5 offset-lg-2 d-flex align-items-end">
+                <p class="section-intro plant-intro reveal"><?= nl2br(htmlspecialchars($gallerySection['intro_copy'])) ?></p>
+            </div>
+        </div>
+
+        <?php if (!empty($galleryImages)): ?>
+        <div class="plant-grid">
+            <?php foreach ($galleryImages as $g):
+                $layoutClass = in_array($g['layout'], ['tall','wide'], true) ? ' ' . $g['layout'] : '';
+                $imgUrl = htmlspecialchars($g['image_url']);
+                $alt    = htmlspecialchars($g['image_alt'] ?: 'WOOLF plant photo');
+            ?>
+                <figure class="plant-item<?= $layoutClass ?> reveal">
+                    <img src="<?= $imgUrl ?>" alt="<?= $alt ?>" loading="lazy">
+                    <?php if (!empty($g['caption'])): ?>
+                        <figcaption>
+                            <b>GALLERY</b>
+                            <span><?= htmlspecialchars($g['caption']) ?></span>
+                        </figcaption>
+                    <?php endif; ?>
+                </figure>
+            <?php endforeach; ?>
+        </div>
+        <?php endif; ?>
+
+        <div class="delivery-panel reveal">
+            <div><span>LOGISTICS</span><h3>Direct from our plant to your site.</h3></div>
+            <div class="fleet-detail"><b>FLEET</b><span>Trucks &amp; trailers</span></div>
+            <div class="fleet-detail"><b>COVERAGE</b><span>Gujarat &amp; nearby</span></div>
+            <p class="small-note">Delivery scheduling and unloading support can be arranged on request.</p>
+        </div>
+    </div>
+</section>
+<?php endif; ?>
 
         <!-- ================= QUALITY ================= -->
         <section class="section quality-section" id="quality">
-            <div class="container">
-                <div class="row g-5">
-                    <div class="col-lg-5">
-                        <div class="eyebrow light reveal">09 / QUALITY</div>
-                        <h2 class="section-title light reveal">Tested.<br><em>Trusted.</em></h2>
-                        <p class="section-intro reveal">Every batch is checked for strength, dimensions and absorption before dispatch.</p>
-                    </div>
-                    <div class="col-lg-6 offset-lg-1">
-                        <div class="document-card reveal">
-                            <div class="doc-head"><span>TEST REPORT</span><i class="bi bi-file-earmark-text"></i></div>
-                            <div style="height:330px;background:#1e2a23;display:flex;align-items:center;justify-content:center;color:#9aab9a;font-size:35px;">Compressive Strength Report</div>
-                            <div class="doc-foot"><div><h3>Compressive strength</h3><p>7-day and 28-day results</p></div><a href="#contact" class="doc-link">Request report <i class="bi bi-arrow-up-right"></i></a></div>
+    <div class="container">
+        <div class="row g-5">
+            <div class="col-12 col-lg-5">
+                <div class="eyebrow light reveal">09 / QUALITY</div>
+                <h2 class="section-title light reveal">Tested.<br><em>Trusted.</em></h2>
+                <p class="section-intro reveal">Every batch is checked for strength, dimensions and absorption before dispatch.</p>
+            </div>
+            <div class="col-12 col-lg-6 offset-lg-1">
+                <div class="document-card reveal">
+                    <div class="doc-head"><span>TEST REPORT</span><i class="bi bi-file-earmark-text"></i></div>
+
+                    <!-- Replace with your own quality / test-report image -->
+                    <img src="uploads/Carved Granite Stone Sign.png"
+                         alt="WOOLF compressive strength test report"
+                         class="document-img"
+                         loading="lazy">
+
+                    <div class="doc-foot">
+                        <div>
+                            <h3>Compressive strength</h3>
+                            <p>7-day and 28-day results</p>
                         </div>
+                        <a href="#contact" class="doc-link">Request report <i class="bi bi-arrow-up-right"></i></a>
                     </div>
-                </div>
-                <div class="report-data reveal">
-                    <h3>Latest batch results</h3>
-                    <div class="row g-4">
-                        <div class="col-4"><b>8.2</b><span>N/mm² average 28-day strength</span></div>
-                        <div class="col-4"><b>6%</b><span>Water absorption</span></div>
-                        <div class="col-4"><b>±1.5</b><span>mm dimensional deviation</span></div>
-                    </div>
-                    <p class="small-note">Data shown is representative. Batch-specific reports available on request.</p>
                 </div>
             </div>
-        </section>
+        </div>
+        <div class="report-data reveal">
+            <h3>Latest batch results</h3>
+            <div class="row g-4">
+                <div class="col-4"><b>8.2</b><span>N/mm² average 28-day strength</span></div>
+                <div class="col-4"><b>6%</b><span>Water absorption</span></div>
+                <div class="col-4"><b>±1.5</b><span>mm dimensional deviation</span></div>
+            </div>
+            <p class="small-note">Data shown is representative. Batch-specific reports available on request.</p>
+        </div>
+    </div>
+</section>
 
        <!-- ================= CLIENTS / CUSTOMERS (REDESIGNED) ================= -->
 <!-- ================= CUSTOMERS / PARTNERS (DB-driven) ================= -->
@@ -1555,21 +1718,74 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['form'] ?? '') === 'enquiry
 </section>
 <?php endif; ?>
         <!-- ================= REELS ================= -->
-        <section class="section reels-section" id="reels">
-            <div class="container">
-                <div class="reels-intro">
-                    <div><div class="eyebrow light">11 / IN ACTION</div><h2 class="section-title light">From the<br><em>field.</em></h2></div>
-                    <p class="section-intro">Real-world applications and behind-the-scenes from our plant.</p>
-                </div>
-                <div class="reels-grid">
-                    <div class="reel-card reveal"><div style="position:absolute;inset:0;background:linear-gradient(145deg,#3b4b3f,#1c2a1f);"></div><div class="reel-tag">SITE</div><div class="reel-meta"><span>APPLICATION</span><b>Fly ash brick wall</b><small>Surat, Gujarat</small></div></div>
-                    <div class="reel-card reveal"><div style="position:absolute;inset:0;background:linear-gradient(145deg,#4b5b4f,#1f2e23);"></div><div class="reel-tag">PLANT</div><div class="reel-meta"><span>PRODUCTION</span><b>Brick pressing</b><small>Jiav Gam</small></div></div>
-                    <div class="reel-card reveal"><div style="position:absolute;inset:0;background:linear-gradient(145deg,#5d6b5f,#2b382e);"></div><div class="reel-tag">QUALITY</div><div class="reel-meta"><span>TESTING</span><b>Strength check</b><small>In-house lab</small></div></div>
-                    <div class="reel-card reveal"><div style="position:absolute;inset:0;background:linear-gradient(145deg,#6b7b6b,#2b3b2d);"></div><div class="reel-tag">DELIVERY</div><div class="reel-meta"><span>LOGISTICS</span><b>Loading &amp; dispatch</b><small>Gaypagal</small></div></div>
-                </div>
-                <div class="reels-footer"><a href="#contact">Enquire about your project <i class="bi bi-arrow-up-right"></i></a></div>
+     <!-- ================= REELS (DB-driven) ================= -->
+<?php if ($reelsSection && !empty($reelsItems)): ?>
+<section class="section reels-section" id="reels">
+    <div class="container">
+        <div class="reels-intro">
+            <div>
+                <div class="eyebrow light"><?= htmlspecialchars($reelsSection['eyebrow']) ?></div>
+                <h2 class="section-title light">
+                    <?= htmlspecialchars($reelsSection['title_line1']) ?><br>
+                    <em><?= htmlspecialchars($reelsSection['title_emphasis']) ?></em>
+                </h2>
             </div>
-        </section>
+            <p class="section-intro"><?= nl2br(htmlspecialchars($reelsSection['intro_copy'])) ?></p>
+        </div>
+
+        <div class="reels-grid">
+            <?php foreach ($reelsItems as $r):
+                $hasVideo  = !empty($r['video_url']);
+                $hasPoster = !empty($r['poster_url']);
+                $hasLink   = !empty($r['link_url']);
+                $href      = $hasLink ? htmlspecialchars($r['link_url']) : '#contact';
+                $target    = $hasLink ? ' target="_blank" rel="noopener noreferrer"' : '';
+            ?>
+                <a class="reel-card reveal"
+                   href="<?= $href ?>"<?= $target ?>
+                   aria-label="<?= htmlspecialchars($r['title'] ?: 'Watch reel') ?>">
+
+                    <?php if ($hasVideo): ?>
+                        <video
+                            src="<?= htmlspecialchars($r['video_url']) ?>"
+                            <?php if ($hasPoster): ?>poster="<?= htmlspecialchars($r['poster_url']) ?>"<?php endif; ?>
+                            autoplay muted loop playsinline preload="metadata"></video>
+                    <?php elseif ($hasPoster): ?>
+                        <img src="<?= htmlspecialchars($r['poster_url']) ?>" alt="<?= htmlspecialchars($r['title'] ?: '') ?>" loading="lazy">
+                    <?php else: ?>
+                        <div class="reel-fallback"></div>
+                    <?php endif; ?>
+
+                    <?php if (!empty($r['tag'])): ?>
+                        <div class="reel-tag"><?= htmlspecialchars($r['tag']) ?></div>
+                    <?php endif; ?>
+
+                    <div class="reel-meta">
+                        <?php if (!empty($r['meta_label'])): ?>
+                            <span><?= htmlspecialchars($r['meta_label']) ?></span>
+                        <?php endif; ?>
+                        <?php if (!empty($r['title'])): ?>
+                            <b><?= htmlspecialchars($r['title']) ?></b>
+                        <?php endif; ?>
+                        <?php if (!empty($r['subtitle'])): ?>
+                            <small><?= htmlspecialchars($r['subtitle']) ?></small>
+                        <?php endif; ?>
+                    </div>
+                </a>
+            <?php endforeach; ?>
+        </div>
+
+        <?php if (!empty($reelsSection['cta_text'])): ?>
+        <div class="reels-footer">
+            <a href="<?= htmlspecialchars($reelsSection['cta_link'] ?: '#contact') ?>">
+                <?= htmlspecialchars($reelsSection['cta_text']) ?>
+                <i class="bi bi-arrow-up-right"></i>
+            </a>
+        </div>
+        <?php endif; ?>
+    </div>
+</section>
+<?php endif; ?>
     </main>
 
     <!-- ================= FOOTER ================= -->
