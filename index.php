@@ -259,12 +259,12 @@ try {
 
     <title>WOOLF — Bricks & Fly Ash | Built for What's Next</title>
 
-    <script async src="https://www.googletagmanager.com/gtm.js?id=GTM-KCH4T2FQ"></script>
-<script>
-  window.dataLayer = window.dataLayer || [];
-  function gtag(){dataLayer.push(arguments);}
-  gtag('js', new Date());
-</script>
+    <!-- Google tag (gtag.js) --> <script async src="https://www.googletagmanager.com/gtag/js?id=GTM-KCH4T2FQ"></script> 
+     <script>
+      window.dataLayer = window.dataLayer || []; function gtag(){dataLayer.push(arguments);} gtag('js', new Date()); 
+      gtag('config', 'GTM-KCH4T2FQ'); 
+
+     </script>
 
 
     <link rel="preconnect" href="https://fonts.googleapis.com">

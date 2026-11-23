@@ -8,100 +8,87 @@ $msg = '';
 $err = '';
 
 /* ============================================================
-   UPLOAD HELPERS
+   HELPERS
    ============================================================ */
+/** Build a safe <img>/<video> src — don't prefix external URLs with ../ */
+function src_for(?string $path): string
+{
+    $path = (string)$path;
+    if ($path === '') return '';
+    if (preg_match('#^https?://#i', $path)) return $path;
+    return '../' . ltrim($path, '/');
+}
+
+/**
+ * Generic image upload.
+ * @param string $field        $_FILES key
+ * @param string $current      existing stored path (to delete on replace)
+ * @param string $subdir       folder under uploads/ (e.g. 'customers')
+ * @param string $prefix       filename prefix
+ * @param array  $allowed      allowed mime types
+ */
+function uploadImage(string $field, string $current = '', string $subdir = '',
+                     string $prefix = 'img',
+                     array $allowed = ['image/jpeg','image/png','image/webp','image/gif','image/svg+xml']): string
+{
+    if (empty($_FILES[$field]['name'])) return $current;
+    $f = $_FILES[$field];
+    if ($f['error'] !== UPLOAD_ERR_OK) return $current;
+    $mime = mime_content_type($f['tmp_name']);
+    if (!in_array($mime, $allowed, true)) return $current;
+
+    $ext = strtolower(pathinfo($f['name'], PATHINFO_EXTENSION));
+    $filename = $prefix . '_' . time() . '_' . bin2hex(random_bytes(4)) . '.' . $ext;
+
+    $relativeDir = 'uploads/' . ($subdir !== '' ? $subdir . '/' : '');
+    $dir = __DIR__ . '/../' . $relativeDir;
+    if (!is_dir($dir)) mkdir($dir, 0755, true);
+
+    $dest = $dir . $filename;
+    if (move_uploaded_file($f['tmp_name'], $dest)) {
+        // delete the old file only if it's the one we manage
+        if ($current && str_starts_with($current, $relativeDir)) {
+            @unlink(__DIR__ . '/../' . $current);
+        }
+        return $relativeDir . $filename;
+    }
+    return $current;
+}
+
 function handleImageUpload(string $fieldName, string $currentUrl = ''): string
 {
-    if (empty($_FILES[$fieldName]['name'])) return $currentUrl;
-    $file = $_FILES[$fieldName];
-    if ($file['error'] !== UPLOAD_ERR_OK) return $currentUrl;
-    $allowed = ['image/jpeg','image/png','image/webp','image/gif','image/svg+xml'];
-    $mime = mime_content_type($file['tmp_name']);
-    if (!in_array($mime, $allowed, true)) return $currentUrl;
-    $ext = strtolower(pathinfo($file['name'], PATHINFO_EXTENSION));
-    $filename = 'about_' . time() . '_' . bin2hex(random_bytes(4)) . '.' . $ext;
-    $dir = __DIR__ . '/../uploads/';
-    if (!is_dir($dir)) mkdir($dir, 0755, true);
-    $dest = $dir . $filename;
-    if (move_uploaded_file($file['tmp_name'], $dest)) {
-        return 'uploads/' . $filename;
-    }
-    return $currentUrl;
+    return uploadImage($fieldName, $currentUrl, '', 'about',
+        ['image/jpeg','image/png','image/webp','image/gif','image/svg+xml']);
 }
 
 function handleCustomerUpload(string $field, string $current = '', string $prefix = 'img'): string
 {
-    if (empty($_FILES[$field]['name'])) return $current;
-    $f = $_FILES[$field];
-    if ($f['error'] !== UPLOAD_ERR_OK) return $current;
-    $allowed = ['image/jpeg','image/png','image/webp','image/gif','image/svg+xml'];
-    $mime = mime_content_type($f['tmp_name']);
-    if (!in_array($mime, $allowed, true)) return $current;
-    $ext = strtolower(pathinfo($f['name'], PATHINFO_EXTENSION));
-    $filename = $prefix . '_' . time() . '_' . bin2hex(random_bytes(4)) . '.' . $ext;
-    $dir = __DIR__ . '/../uploads/customers/';
-    if (!is_dir($dir)) mkdir($dir, 0755, true);
-    $dest = $dir . $filename;
-    if (move_uploaded_file($f['tmp_name'], $dest)) {
-        if ($current && str_starts_with($current, 'uploads/customers/')) {
-            @unlink(__DIR__ . '/../' . $current);
-        }
-        return 'uploads/customers/' . $filename;
-    }
-    return $current;
+    return uploadImage($field, $current, 'customers', $prefix,
+        ['image/jpeg','image/png','image/webp','image/gif','image/svg+xml']);
 }
 
 function handleGalleryUpload(string $field, string $current = ''): string
 {
-    if (empty($_FILES[$field]['name'])) return $current;
-    $f = $_FILES[$field];
-    if ($f['error'] !== UPLOAD_ERR_OK) return $current;
-    $allowed = ['image/jpeg','image/png','image/webp','image/gif'];
-    $mime = mime_content_type($f['tmp_name']);
-    if (!in_array($mime, $allowed, true)) return $current;
-    $ext = strtolower(pathinfo($f['name'], PATHINFO_EXTENSION));
-    $filename = 'gallery_' . time() . '_' . bin2hex(random_bytes(4)) . '.' . $ext;
-    $dir = __DIR__ . '/../uploads/gallery/';
-    if (!is_dir($dir)) mkdir($dir, 0755, true);
-    $dest = $dir . $filename;
-    if (move_uploaded_file($f['tmp_name'], $dest)) {
-        if ($current && str_starts_with($current, 'uploads/gallery/')) {
-            @unlink(__DIR__ . '/../' . $current);
-        }
-        return 'uploads/gallery/' . $filename;
-    }
-    return $current;
+    return uploadImage($field, $current, 'gallery', 'gallery',
+        ['image/jpeg','image/png','image/webp','image/gif']);
 }
 
 function handleReelUpload(string $field, string $current = '', string $kind = 'video'): string
 {
-    if (empty($_FILES[$field]['name'])) return $current;
-    $f = $_FILES[$field];
-    if ($f['error'] !== UPLOAD_ERR_OK) return $current;
-
     if ($kind === 'video') {
         $allowed = ['video/mp4','video/webm','video/quicktime','video/x-m4v'];
+        $prefix  = 'reel_vid';
     } else {
         $allowed = ['image/jpeg','image/png','image/webp','image/gif'];
+        $prefix  = 'reel_poster';
     }
-    $mime = mime_content_type($f['tmp_name']);
-    if (!in_array($mime, $allowed, true)) return $current;
+    return uploadImage($field, $current, 'reels', $prefix, $allowed);
+}
 
-    $ext = strtolower(pathinfo($f['name'], PATHINFO_EXTENSION));
-    $prefix = $kind === 'video' ? 'reel_vid_' : 'reel_poster_';
-    $filename = $prefix . time() . '_' . bin2hex(random_bytes(4)) . '.' . $ext;
-
-    $dir = __DIR__ . '/../uploads/reels/';
-    if (!is_dir($dir)) mkdir($dir, 0755, true);
-    $dest = $dir . $filename;
-
-    if (move_uploaded_file($f['tmp_name'], $dest)) {
-        if ($current && str_starts_with($current, 'uploads/reels/')) {
-            @unlink(__DIR__ . '/../' . $current);
-        }
-        return 'uploads/reels/' . $filename;
-    }
-    return $current;
+/** Returns true if a new valid file was uploaded for the given field */
+function hasNewUpload(string $field): bool
+{
+    return !empty($_FILES[$field]['name']) && ($_FILES[$field]['error'] ?? UPLOAD_ERR_NO_FILE) === UPLOAD_ERR_OK;
 }
 
 /* ============================================================
@@ -155,9 +142,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             || $lead_copy === '' || $body_copy === '') {
             $err = 'Please fill all required fields.';
         } else {
+            // Uploaded file always wins over the URL field
             $image_url = handleImageUpload('image_file', $existingImage);
-            $urlOverride = trim($_POST['image_url'] ?? '');
-            if ($urlOverride !== '') $image_url = $urlOverride;
+            if (!hasNewUpload('image_file')) {
+                $urlOverride = trim($_POST['image_url'] ?? '');
+                if ($urlOverride !== '') $image_url = $urlOverride;
+            }
 
             $stats = [];
             $statValues = $_POST['stat_value'] ?? [];
@@ -264,9 +254,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         if ($name === '') {
             $err = 'Client name is required.';
         } else {
+            // File upload wins over URL
             $logo = handleCustomerUpload('logo_file', $existing, 'client');
-            $urlOverride = trim($_POST['logo_url'] ?? '');
-            if ($urlOverride !== '') $logo = $urlOverride;
+            if (!hasNewUpload('logo_file')) {
+                $urlOverride = trim($_POST['logo_url'] ?? '');
+                if ($urlOverride !== '') $logo = $urlOverride;
+            }
 
             try {
                 if ($id > 0) {
@@ -310,13 +303,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $cur->execute([$sid]);
         $cs = $cur->fetch() ?: [];
 
+        // Uploads — file wins over URL
         $p1 = handleCustomerUpload('photo1_file', $cs['photo1_url'] ?? '', 'photo1');
         $p2 = handleCustomerUpload('photo2_file', $cs['photo2_url'] ?? '', 'photo2');
         $p3 = handleCustomerUpload('photo3_file', $cs['photo3_url'] ?? '', 'photo3');
 
-        if (!empty($_POST['photo1_url'])) $p1 = trim($_POST['photo1_url']);
-        if (!empty($_POST['photo2_url'])) $p2 = trim($_POST['photo2_url']);
-        if (!empty($_POST['photo3_url'])) $p3 = trim($_POST['photo3_url']);
+        if (!hasNewUpload('photo1_file') && !empty($_POST['photo1_url'])) $p1 = trim($_POST['photo1_url']);
+        if (!hasNewUpload('photo2_file') && !empty($_POST['photo2_url'])) $p2 = trim($_POST['photo2_url']);
+        if (!hasNewUpload('photo3_file') && !empty($_POST['photo3_url'])) $p3 = trim($_POST['photo3_url']);
 
         $stmt = $db->prepare(
             "UPDATE customer_section SET
@@ -389,9 +383,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $existing = (string)$row->fetchColumn();
         }
 
+        // File upload wins over URL
         $image_url = handleGalleryUpload('image_file', $existing);
-        $urlOverride = trim($_POST['image_url'] ?? '');
-        if ($urlOverride !== '') $image_url = $urlOverride;
+        if (!hasNewUpload('image_file')) {
+            $urlOverride = trim($_POST['image_url'] ?? '');
+            if ($urlOverride !== '') $image_url = $urlOverride;
+        }
 
         if ($image_url === '') {
             $err = 'Please upload an image or paste an image URL.';
@@ -467,7 +464,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $sid       = (int)($_POST['section_id'] ?? 1);
         $reelId    = (int)($_POST['reel_id'] ?? 0);
 
-        // Load existing values if editing
         $existingVideo  = '';
         $existingPoster = '';
         if ($reelId > 0) {
@@ -478,13 +474,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $existingPoster = $r['poster_url'] ?? '';
         }
 
-        // Uploads
+        // File wins over URL
         $video_url  = handleReelUpload('video_file',  $existingVideo,  'video');
         $poster_url = handleReelUpload('poster_file', $existingPoster, 'poster');
 
-        // URL overrides
-        if (!empty($_POST['video_url']))  $video_url  = trim($_POST['video_url']);
-        if (!empty($_POST['poster_url'])) $poster_url = trim($_POST['poster_url']);
+        if (!hasNewUpload('video_file') && !empty($_POST['video_url'])) {
+            $video_url = trim($_POST['video_url']);
+        }
+        if (!hasNewUpload('poster_file') && !empty($_POST['poster_url'])) {
+            $poster_url = trim($_POST['poster_url']);
+        }
 
         $link_url   = trim($_POST['link_url']   ?? '');
         $tag        = trim($_POST['tag']        ?? '');
@@ -605,7 +604,7 @@ try {
 }
 
 /* ---- Customers ---- */
-$custSection = $db->query("SELECT * FROM customer_section ORDER BY id ASC LIMIT 1")->fetch();
+$custSection = $db->query("SELECT * FROM customer_section ORDER BY id ASC LIMIT 1")->fetch() ?: null;
 
 $editingClient = null;
 if (!empty($_GET['edit_client'])) {
@@ -795,6 +794,10 @@ textarea.form-control{resize:vertical;min-height:60px}
 .enq-actions{display:flex;flex-wrap:wrap;gap:5px}
 .empty-state{text-align:center;padding:50px 20px;color:#8f9990}
 .empty-state i{font-size:36px;opacity:.4;display:block;margin-bottom:10px}
+.img-missing{display:block;width:100%;max-width:260px;height:140px;
+    border:1px dashed rgba(220,80,80,.4);border-radius:4px;
+    color:#f0a0a0;font-size:11px;text-align:center;padding-top:55px;
+    margin-bottom:10px;background:rgba(220,80,80,.05)}
 @media(max-width:820px){
   .admin-wrap{flex-direction:column}
   .sidebar{width:100%;height:auto;position:static;padding:14px 0}
@@ -883,10 +886,14 @@ textarea.form-control{resize:vertical;min-height:60px}
           <div class="col-12"><label class="form-label">Body Copy *</label>
             <textarea name="body_copy" rows="3" class="form-control" required><?= htmlspecialchars($editing['body_copy'] ?? 'R&D began in 2019, production October 2022. Proprietor: Pritesh R Patel. Factory: Gaypagal & Jiav Gam.') ?></textarea></div>
           <div class="col-md-7"><label class="form-label">About Image (upload)</label>
-            <?php if (!empty($editing['image_url'])): ?><img src="../<?= htmlspecialchars($editing['image_url']) ?>" class="img-preview" alt=""><?php endif; ?>
+            <?php if (!empty($editing['image_url'])): ?>
+              <img src="<?= htmlspecialchars(src_for($editing['image_url'])) ?>" class="img-preview" alt=""
+                   onerror="this.outerHTML='<div class=\'img-missing\'>Image not found:<br><?= htmlspecialchars($editing['image_url']) ?></div>'">
+            <?php endif; ?>
             <input type="file" name="image_file" class="form-control" accept="image/*"></div>
           <div class="col-md-5"><label class="form-label">Or paste Image URL</label>
             <input name="image_url" class="form-control" value="<?= htmlspecialchars($editing['image_url'] ?? '') ?>">
+            <div class="form-text text-secondary mt-1">Upload takes priority over URL.</div>
             <div class="form-check mt-3">
               <input class="form-check-input" type="checkbox" name="is_active" id="is_active" <?= (!$editing || !empty($editing['is_active'])) ? 'checked' : '' ?>>
               <label class="form-check-label small" for="is_active">Active</label>
@@ -924,7 +931,10 @@ textarea.form-control{resize:vertical;min-height:60px}
             <?php else: foreach ($sections as $s): ?>
               <tr>
                 <td>#<?= (int)$s['id'] ?></td>
-                <td><?php if (!empty($s['image_url'])): ?><img src="../<?= htmlspecialchars($s['image_url']) ?>" class="thumb" alt=""><?php else: ?><span class="text-secondary small">—</span><?php endif; ?></td>
+                <td><?php if (!empty($s['image_url'])): ?>
+                  <img src="<?= htmlspecialchars(src_for($s['image_url'])) ?>" class="thumb" alt=""
+                       onerror="this.style.visibility='hidden'">
+                <?php else: ?><span class="text-secondary small">—</span><?php endif; ?></td>
                 <td><div class="fw-semibold"><?= htmlspecialchars($s['title_line1'] . ' ' . $s['title_line2']) ?></div><div class="small text-secondary"><?= htmlspecialchars($s['title_emphasis']) ?></div></td>
                 <td><?php if ($s['is_active']): ?><span class="badge bg-success bg-opacity-25 text-success border border-success border-opacity-25">Active</span><?php else: ?><span class="badge bg-secondary bg-opacity-25 text-secondary border border-secondary border-opacity-25">Inactive</span><?php endif; ?></td>
                 <td class="small text-secondary"><?= htmlspecialchars($s['updated_at']) ?></td>
@@ -982,11 +992,15 @@ textarea.form-control{resize:vertical;min-height:60px}
         <input type="hidden" name="image_id" value="<?= $editingImage ? (int)$editingImage['id'] : '' ?>">
         <div class="row g-3">
           <div class="col-md-6"><label class="form-label">Upload Image *</label>
-            <?php if (!empty($editingImage['image_url'])): ?><img src="../<?= htmlspecialchars($editingImage['image_url']) ?>" class="g-preview" alt=""><?php endif; ?>
+            <?php if (!empty($editingImage['image_url'])): ?>
+              <img src="<?= htmlspecialchars(src_for($editingImage['image_url'])) ?>" class="g-preview" alt=""
+                   onerror="this.outerHTML='<div class=\'img-missing\'>Image not found:<br><?= htmlspecialchars($editingImage['image_url']) ?></div>'">
+            <?php endif; ?>
             <input type="file" name="image_file" class="form-control" accept="image/*">
             <div class="form-text text-secondary mt-1">Uploads → <code>uploads/gallery/</code></div></div>
           <div class="col-md-6"><label class="form-label">Or paste Image URL</label>
             <input name="image_url" class="form-control" value="<?= htmlspecialchars($editingImage['image_url'] ?? '') ?>">
+            <div class="form-text text-secondary mt-1">Upload takes priority over URL.</div>
             <label class="form-label mt-2">Alt Text</label>
             <input name="image_alt" class="form-control" value="<?= htmlspecialchars($editingImage['image_alt'] ?? '') ?>"></div>
           <div class="col-md-6"><label class="form-label">Caption</label>
@@ -1021,7 +1035,8 @@ textarea.form-control{resize:vertical;min-height:60px}
             <?php else: foreach ($galleryImages as $img): ?>
               <tr>
                 <td>#<?= (int)$img['id'] ?></td>
-                <td><img src="../<?= htmlspecialchars($img['image_url']) ?>" class="g-thumb" alt=""></td>
+                <td><img src="<?= htmlspecialchars(src_for($img['image_url'])) ?>" class="g-thumb" alt=""
+                         onerror="this.style.visibility='hidden'"></td>
                 <td><div class="fw-semibold" style="color:#fff"><?= htmlspecialchars($img['caption'] ?: '—') ?></div><div class="small text-secondary"><?= htmlspecialchars($img['image_alt'] ?: '') ?></div></td>
                 <td><span class="badge bg-secondary bg-opacity-25 text-secondary border border-secondary border-opacity-25"><?= htmlspecialchars($img['layout']) ?></span></td>
                 <td><?= (int)$img['sort_order'] ?></td>
@@ -1087,8 +1102,9 @@ textarea.form-control{resize:vertical;min-height:60px}
           <div class="col-md-4">
             <label class="form-label">Upload Video *</label>
             <?php if (!empty($editingReel['video_url'])): ?>
-              <video class="reel-video-preview" src="../<?= htmlspecialchars($editingReel['video_url']) ?>"
-                     muted playsinline preload="metadata"></video>
+              <video class="reel-video-preview" src="<?= htmlspecialchars(src_for($editingReel['video_url'])) ?>"
+                     muted playsinline preload="metadata"
+                     <?php if (!empty($editingReel['poster_url'])): ?>poster="<?= htmlspecialchars(src_for($editingReel['poster_url'])) ?>"<?php endif; ?>></video>
             <?php endif; ?>
             <input type="file" name="video_file" class="form-control" accept="video/mp4,video/webm,video/quicktime">
             <div class="form-text text-secondary mt-1">MP4/WebM/MOV. Uploads → <code>uploads/reels/</code></div>
@@ -1099,10 +1115,12 @@ textarea.form-control{resize:vertical;min-height:60px}
             <input name="video_url" class="form-control"
                    placeholder="https://… or uploads/reels/…"
                    value="<?= htmlspecialchars($editingReel['video_url'] ?? '') ?>">
+            <div class="form-text text-secondary mt-1">Upload takes priority over URL.</div>
 
             <label class="form-label mt-2">Poster Image (optional)</label>
             <?php if (!empty($editingReel['poster_url'])): ?>
-              <img class="g-preview" src="../<?= htmlspecialchars($editingReel['poster_url']) ?>" alt="">
+              <img class="g-preview" src="<?= htmlspecialchars(src_for($editingReel['poster_url'])) ?>" alt=""
+                   onerror="this.outerHTML='<div class=\'img-missing\'>Image not found:<br><?= htmlspecialchars($editingReel['poster_url']) ?></div>'">
             <?php endif; ?>
             <input type="file" name="poster_file" class="form-control" accept="image/*">
             <input name="poster_url" class="form-control mt-2" placeholder="Or paste poster URL"
@@ -1178,11 +1196,12 @@ textarea.form-control{resize:vertical;min-height:60px}
                 <td>#<?= (int)$r['id'] ?></td>
                 <td>
                   <?php if (!empty($r['video_url'])): ?>
-                    <video class="reel-thumb" src="../<?= htmlspecialchars($r['video_url']) ?>"
+                    <video class="reel-thumb" src="<?= htmlspecialchars(src_for($r['video_url'])) ?>"
                            muted playsinline preload="metadata"
-                           <?php if (!empty($r['poster_url'])): ?>poster="../<?= htmlspecialchars($r['poster_url']) ?>"<?php endif; ?>></video>
+                           <?php if (!empty($r['poster_url'])): ?>poster="<?= htmlspecialchars(src_for($r['poster_url'])) ?>"<?php endif; ?>></video>
                   <?php elseif (!empty($r['poster_url'])): ?>
-                    <img class="reel-thumb" src="../<?= htmlspecialchars($r['poster_url']) ?>" alt="">
+                    <img class="reel-thumb" src="<?= htmlspecialchars(src_for($r['poster_url'])) ?>" alt=""
+                         onerror="this.style.visibility='hidden'">
                   <?php else: ?>
                     <div class="logo-placeholder"><i class="bi bi-play-btn"></i></div>
                   <?php endif; ?>
@@ -1312,10 +1331,14 @@ textarea.form-control{resize:vertical;min-height:60px}
             $pu = $custSection["photo{$i}_url"]; $pt = $custSection["photo{$i}_tag"]; $pc = $custSection["photo{$i}_caption"]; ?>
           <div class="photo-cell"><div class="row g-2">
             <div class="col-md-4"><label class="form-label">Photo <?= $i ?> (upload)</label>
-              <?php if ($pu): ?><img src="../<?= htmlspecialchars($pu) ?>" class="photo-preview" alt=""><?php endif; ?>
+              <?php if ($pu): ?>
+                <img src="<?= htmlspecialchars(src_for($pu)) ?>" class="photo-preview" alt=""
+                     onerror="this.outerHTML='<div class=\'img-missing\'>Photo <?= $i ?> not found:<br><?= htmlspecialchars($pu) ?></div>'">
+              <?php endif; ?>
               <input type="file" name="photo<?= $i ?>_file" class="form-control" accept="image/*"></div>
             <div class="col-md-4"><label class="form-label">Or URL</label>
               <input name="photo<?= $i ?>_url" class="form-control" value="<?= htmlspecialchars($pu ?? '') ?>">
+              <div class="form-text text-secondary mt-1">Upload takes priority over URL.</div>
               <label class="form-label mt-2">Tag</label><input name="photo<?= $i ?>_tag" class="form-control" value="<?= htmlspecialchars($pt) ?>"></div>
             <div class="col-md-4"><label class="form-label">Caption</label><input name="photo<?= $i ?>_caption" class="form-control" value="<?= htmlspecialchars($pc) ?>"></div>
           </div></div>
@@ -1345,10 +1368,14 @@ textarea.form-control{resize:vertical;min-height:60px}
             <?php foreach ($iconChoices as $val => $lbl): ?><option value="<?= $val ?>" <?= ($editingClient['icon_class'] ?? 'bi-building') === $val ? 'selected' : '' ?>><?= $lbl ?></option><?php endforeach; ?>
           </select></div>
           <div class="col-md-6"><label class="form-label">Upload Logo</label>
-            <?php if (!empty($editingClient['logo_url'])): ?><img src="../<?= htmlspecialchars($editingClient['logo_url']) ?>" class="logo-preview" alt=""><?php endif; ?>
+            <?php if (!empty($editingClient['logo_url'])): ?>
+              <img src="<?= htmlspecialchars(src_for($editingClient['logo_url'])) ?>" class="logo-preview" alt=""
+                   onerror="this.outerHTML='<div class=\'img-missing\'>Logo not found:<br><?= htmlspecialchars($editingClient['logo_url']) ?></div>'">
+            <?php endif; ?>
             <input type="file" name="logo_file" class="form-control" accept="image/*"></div>
           <div class="col-md-6"><label class="form-label">Or paste Logo URL</label>
             <input name="logo_url" class="form-control" value="<?= htmlspecialchars($editingClient['logo_url'] ?? '') ?>">
+            <div class="form-text text-secondary mt-1">Upload takes priority over URL.</div>
             <label class="form-label mt-2">Marquee Text (optional)</label>
             <input name="marquee_text" class="form-control" value="<?= htmlspecialchars($editingClient['marquee_text'] ?? '') ?>">
             <div class="d-flex flex-wrap gap-3 mt-3">
@@ -1375,7 +1402,10 @@ textarea.form-control{resize:vertical;min-height:60px}
             <?php else: foreach ($clients as $c): ?>
               <tr>
                 <td>#<?= (int)$c['id'] ?></td>
-                <td><?php if (!empty($c['logo_url'])): ?><img src="../<?= htmlspecialchars($c['logo_url']) ?>" class="logo-thumb" alt=""><?php else: ?><div class="logo-placeholder"><i class="bi bi-image"></i></div><?php endif; ?></td>
+                <td><?php if (!empty($c['logo_url'])): ?>
+                  <img src="<?= htmlspecialchars(src_for($c['logo_url'])) ?>" class="logo-thumb" alt=""
+                       onerror="this.style.visibility='hidden'">
+                <?php else: ?><div class="logo-placeholder"><i class="bi bi-image"></i></div><?php endif; ?></td>
                 <td><div class="fw-semibold" style="color:#fff"><?= htmlspecialchars($c['client_name']) ?></div><div class="small text-secondary"><?= htmlspecialchars($c['client_type']) ?><?php if (!empty($c['is_featured'])): ?> · <span style="color:var(--gold)">★ Featured</span><?php endif; ?></div></td>
                 <td><?= (int)$c['sort_order'] ?></td>
                 <td><?php if ($c['is_active']): ?><span class="badge bg-success bg-opacity-25 text-success border border-success border-opacity-25">Active</span><?php else: ?><span class="badge bg-secondary bg-opacity-25 text-secondary border border-secondary border-opacity-25">Hidden</span><?php endif; ?></td>
