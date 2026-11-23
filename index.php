@@ -256,7 +256,17 @@ try {
     <meta name="description"
         content="WOOLF Bricks & Fly Ash — fly ash bricks and concrete blocks manufactured in Surat, Gujarat. Explore products, plant, specifications and enquire for supply.">
     <meta name="theme-color" content="#111715">
+
     <title>WOOLF — Bricks & Fly Ash | Built for What's Next</title>
+
+    <script async src="https://www.googletagmanager.com/gtm.js?id=GTM-KCH4T2FQ"></script>
+<script>
+  window.dataLayer = window.dataLayer || [];
+  function gtag(){dataLayer.push(arguments);}
+  gtag('js', new Date());
+</script>
+
+
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link
