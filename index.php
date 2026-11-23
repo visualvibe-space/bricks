@@ -1260,7 +1260,7 @@ a.reel-card:hover{color:inherit}
                     <?php else: ?>
                         <div style="width:100%;height:100%;background:linear-gradient(145deg,#3b4b3f,#1c2a1f);
                                     display:flex;align-items:center;justify-content:center;
-                                    color:#fff;font-size:14px;">
+                                    color:#fff;font-size:45px;">
                             <?= htmlspecialchars($about['image_alt'] ?: 'WOOLF Manufacturing') ?>
                         </div>
                     <?php endif; ?>
